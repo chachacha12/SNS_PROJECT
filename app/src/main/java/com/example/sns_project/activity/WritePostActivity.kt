@@ -147,6 +147,10 @@ class WritePostActivity : BasicActivity() {
                 val imageView = ImageView(this)   //새로운 이미지뷰를 하나를 이 액티비티xml에 생성함
                 imageView.layoutParams = layoutParams  //위에서 만든 layoutParams를 이미지뷰에 붙힘
 
+                //아래의 두줄을 통해 게시글 만드는 화면에서 이미지 추가할때, 그 이미지가 화면에 꽉차보이게 나옴.
+                imageView.adjustViewBounds=true
+                imageView.scaleType = ImageView.ScaleType.FIT_XY
+
                 imageView.setOnClickListener {
                     buttonsBackgroundlayout.visibility = View.VISIBLE       //이미지를 삭제or수정하려고 눌렀을때
                     selectedImageView = it as ImageView
@@ -184,7 +188,7 @@ class WritePostActivity : BasicActivity() {
     var successCount = 0    //게시글에 첨부한 사진이 여러개일수 있으니, 언제 끝나는지 확인해주기 위한 변수
 
     //memberinit액티비티에서 가져온 함수 2개 -> profileUpdate와 uploader함수를 변형해준거임
-    private fun storageUpload()   //사용자가 확인버튼 눌르면 실행시킬 함수 -게시글 작성한걸 파이어베이스 등록(업데이트)해줌
+    private fun storageUpload()   //사용자가 확인버튼 눌르면 실행시킬 함수 -게시글 작성한걸 파이어베이스에 등록(업데이트)해줌
     {
         var tilte = titleEditText.text.toString()
 
@@ -196,8 +200,18 @@ class WritePostActivity : BasicActivity() {
             val storageRef = storage.reference
             val firebaseFirestore =
                 FirebaseFirestore.getInstance()  //파이어베이스 클라우드firestore(db)객체를 가져옴
-            val documentReference = firebaseFirestore.collection("posts")
-                .document()  //db에 있는 posts컬렉션의 documents주소를 가져옴 (이 주소안에 데이터넣거나 등등에 쓰려고가져옴)
+            var id = intent.getStringExtra("id")   //MainActivity에서 게시글 수정버튼을 눌러서 보낸 인텐트에 실린 값(수정하고자하는 게시물 id)를 받음. 인텐트를 받을땐 getIntent() 또는 Intent 이용.
+
+            lateinit var dr: DocumentReference
+            if(id==null){  //게시글 새로 만들려고 +버튼 눌러서 이 액티비티 왔을때
+                dr = firebaseFirestore.collection("posts").document()   //db에 있는 posts컬렉션의 documents주소를 가져옴 (이 주소안에 데이터넣거나 등등에 쓰려고가져옴)
+
+            }else{  //수정버튼을 눌러서 이 액티비티로 왔을때
+                dr = firebaseFirestore.collection("posts").document(id)  //이러면 id에 맞는 특정 위치의 문서에 수정한 게시글이 생기면서 원래 있던 게시글은 덮여써질거임.
+
+            }
+
+            val documentReference = dr
 
 
             //contentsLayout안에 들어있는 자식뷰의 유형(이미지뷰, 에디트텍스트뷰)에 따라 나눠서 파이어베이스에 저장
