@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
+import android.util.Patterns
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -37,12 +38,82 @@ class WritePostActivity : BasicActivity() {
     private lateinit var buttonsBackgroundlayout: RelativeLayout     //게시글에 있는 이미지or 이 레이아웃 자체를 눌렀을때 이미지 수정 및 삭제하는 기능을 위한 레이아웃객체 전역으로둠
     private lateinit var selectedImageView: ImageView //사용자가 게시글에 올린 이미지 삭제or수정하려고 선택했을때 그 이미지를 이 전역변수에 저장해둘거임. 삭제하기 편하게.
     private var selectedEditText: EditText? = null  //우선 null로 지정해둠. 안해두면 포커스 지정안해줬을때 에러남. selectedEditText변수가 쓰이는데 초기화는 안되어있어서 에러나는듯. 그래서 null로 초기화해줌
-
+    private lateinit var postInfo: PostInfo  //특정 게시물 수정하기 버튼 눌렀을때 이 변수에 넣어줄거임. 여러 지역함수?안에서 쓸거라 전역으로빼둠
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_write_post)
+        postinit()
         init()
+    }
+
+    //수정하기버튼눌러서 이 액티비티 온 경우 등엔 게시글의 editText가 원래 수정전 내용으로 차있도록 하게할거임.
+    private fun postinit(){
+         postInfo = intent.getSerializableExtra("postInfo")  as PostInfo  //MainActivity에서 게시글 수정버튼을 눌러서 보낸 인텐트에 실린 값(수정하고자하는 게시물 객체)를 받음. 인텐트를 받을땐 getIntent() 또는 Intent 이용.
+        //getSerializable은 보내는 데이터가 내가 만든 클래스의 객체일때 사용함.
+
+        if(postInfo != null){   //null이라면 수정하기버튼 누른게 아니라 +버튼눌러서 새로운 게시글 만드려는거임. 즉, postinit()을 안거쳐도됨
+            titleEditText.setText(postInfo.title)
+            //이제 contents 내용들 삥삥 돌면서 기존 이미지랑 EditText들을 넣어주면됨
+            var contentsList = postInfo.contents
+            for (i in contentsList.indices) {
+                var contents = contentsList.get(i)
+                if (Patterns.WEB_URL.matcher(contents).matches() && contents.contains("https://firebasestorage.googleapis.com/v0/b/sns-project-d0fb7.appspot.com/o/post")) {        //올바른 url형식인지 판별, 즉 이미지or영상인지 // Patterns.WEB_URL.matcher().matches() 이 구문은 matcher안의 문자열이 올바른 url형식인지 판단해서 true나 false반환함
+                    pathList.add(contents)
+                    val layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ) //가로는 matchparent하고 위아래 길이는 wrapcontent인듯?
+
+                    var linearLayout =
+                        LinearLayout(this)   //이미지뷰와 editText뷰를 묶어서 관리하기 쉽게 레이아웃 하나 만듬
+                    linearLayout.layoutParams = layoutParams
+                    linearLayout.orientation =
+                        LinearLayout.VERTICAL   //이렇게 갑작스럽게 만들어지는 레이아웃 또는 뷰들은 속성을 이렇게 코딩해주기
+
+                    contentsLayout.addView(linearLayout)
+
+                    val imageView = ImageView(this)   //새로운 이미지뷰를 하나를 이 액티비티xml에 생성함
+                    imageView.layoutParams = layoutParams  //위에서 만든 layoutParams를 이미지뷰에 붙힘
+
+                    //아래의 두줄을 통해 게시글 만드는 화면에서 이미지 추가할때, 그 이미지가 화면에 꽉차보이게 나옴.
+                    imageView.adjustViewBounds = true
+                    imageView.scaleType = ImageView.ScaleType.FIT_XY
+
+                    imageView.setOnClickListener {
+                        buttonsBackgroundlayout.visibility =
+                            View.VISIBLE       //이미지를 삭제or수정하려고 눌렀을때
+                        selectedImageView = it as ImageView
+                    }
+
+                    Glide.with(this).load(contents).override(1000)
+                        .into(imageView)  //사진 경로이용해서 이미지뷰에 띄워줌
+                    linearLayout.addView(imageView)  //이렇게 해주면 contentsLayout안에, 만든 이미지뷰가 생성될거임
+
+                    val editText = EditText(this)  ////새로운 editText뷰 하나를 이 액티비티xml에 생성함
+                    editText.layoutParams = layoutParams
+                    editText.inputType =
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE  //editText의 인풋속성(사용자가 editText에 글쓸때의 속성)을 추가해줌
+                    editText.inputType = InputType.TYPE_CLASS_TEXT
+                    editText.setHint("내용")
+                    if (i < contentsList.size - 1) {   //처음에 이 게시글 만들때 이미지 붙여놓고 밑에 같이 생성되었던 editText안에 글을 써두었다면.
+                        var nextContents = contentsList.get(i + 1)
+                        if (!Patterns.WEB_URL.matcher(nextContents).matches() && nextContents.contains(
+                                "https://firebasestorage.googleapis.com/v0/b/sns-project-d0fb7.appspot.com/o/post"
+                            )
+                        ) { //다음 contents가 이미지나 영상이 아닐경우에만
+                            editText.setText(nextContents)  //editTEXT에다가 수정전에 작성했던 내용을 넣어줌
+                        }
+                    }
+
+                    editText.onFocusChangeListener =
+                        onFocusChangedListener   //포커스가 있는지 판별함. 포커스 있으면 이 뷰가 selectedEditText가 됨
+                    linearLayout.addView(editText)
+                }else if(i==0){  //i가 0인데 url형식이 아니라면 첫번째 editTEXT가 있다는 것임.
+                    contentsEditText.setText(contents)   //첫 editText에다가 수정전, 기존에 있던 내용을 넣어줌
+                }
+            } //for
+        }
     }
 
     private fun init() {
@@ -59,7 +130,6 @@ class WritePostActivity : BasicActivity() {
             )      //갤러리액티비티에 image라는 String값을 보냄. 갤러리액티비티에서 받을땐 키값인 media이용
             startActivityForResult(i, 0)   //requestCode가 필요한 이유는 나중에 갤러리 액티비티에서 일 마치고 결과값이
             // 이 액티비티로 돌아올때 onActivityResult()함수에서 requestCode를 비교해서 각각 다른 동작을 수행하게 할때를 위한 구분이 됨
-
         }
 
         video.setOnClickListener {
@@ -92,8 +162,9 @@ class WritePostActivity : BasicActivity() {
         }
 
         delete.setOnClickListener {
-            contentsLayout.removeView(selectedImageView?.parent as View)   // .parent 또는 getParent()를 하면 그 뷰의 부모 뷰(linearLayout 등)가 선택되어진다.
-            //removeView()안에는 뷰가 와야하는데 레이아웃이 와버려서 에러뜸. 그러므로 as를 통해 뷰로 형변환 해줌
+            var selectedView = selectedImageView.parent as View   // .parent 또는 getParent()를 하면 그 뷰의 부모 뷰(linearLayout 등)가 선택되어진다.  //removeView()안에는 뷰가 와야하는데 레이아웃이 와버려서 에러뜸. 그러므로 as를 통해 뷰로 형변환 해줌
+            pathList.removeAt(contentsLayout.indexOfChild(selectedView) - 1) //pathList에서 해당 이미지를 삭제함  // indexOfChild를 써서 contentsLayout의 몇번째 뷰인지 알아냄  //첫번째 editText가 무조건 있으니까 마이너스 1 해줌
+            contentsLayout.removeView(selectedView)
             buttonsBackgroundlayout.visibility = View.GONE
         }
 
@@ -182,7 +253,6 @@ class WritePostActivity : BasicActivity() {
     private var onFocusChangedListener =
         View.OnFocusChangeListener { v, hasFocus -> selectedEditText = v as EditText }
 
-
     //전역변수
     var pathCount = 0     //게시글에 첨부된 사진이 몇개인지 알기위해서
     var successCount = 0    //게시글에 첨부한 사진이 여러개일수 있으니, 언제 끝나는지 확인해주기 위한 변수
@@ -200,19 +270,20 @@ class WritePostActivity : BasicActivity() {
             val storageRef = storage.reference
             val firebaseFirestore =
                 FirebaseFirestore.getInstance()  //파이어베이스 클라우드firestore(db)객체를 가져옴
-            var id = intent.getStringExtra("id")   //MainActivity에서 게시글 수정버튼을 눌러서 보낸 인텐트에 실린 값(수정하고자하는 게시물 id)를 받음. 인텐트를 받을땐 getIntent() 또는 Intent 이용.
 
-            lateinit var dr: DocumentReference
-            if(id==null){  //게시글 새로 만들려고 +버튼 눌러서 이 액티비티 왔을때
-                dr = firebaseFirestore.collection("posts").document()   //db에 있는 posts컬렉션의 documents주소를 가져옴 (이 주소안에 데이터넣거나 등등에 쓰려고가져옴)
-
-            }else{  //수정버튼을 눌러서 이 액티비티로 왔을때
-                dr = firebaseFirestore.collection("posts").document(id)  //이러면 id에 맞는 특정 위치의 문서에 수정한 게시글이 생기면서 원래 있던 게시글은 덮여써질거임.
-
-            }
-
-            val documentReference = dr
-
+            var documentReference =
+                if(postInfo ==null){  //게시글 새로 만들려고 +버튼 눌러서 이 액티비티 왔을때
+                    firebaseFirestore.collection("posts").document()   //db에 있는 posts컬렉션의 documents주소를 가져옴 (이 주소안에 데이터넣거나 등등에 쓰려고가져옴)
+                }else{  //수정버튼을 눌러서 이 액티비티로 왔을때
+                     firebaseFirestore.collection("posts").document(postInfo.id!!)  //이러면 id에 맞는 특정 위치의 문서에 수정한 게시글이 생기면서 원래 있던 게시글은 덮여써질거임.
+                }
+            //게시글 새로만드려고 이 액티비티 온건지 수정버튼 눌러서 온건지에 따라, 만드는 게시글의 생성일을 새로만들거나, 기존꺼 유지하거나함.
+            var date =
+                if(postInfo  == null){
+                     Date()
+                }else{
+                     postInfo.createdAt!!
+                }
 
             //contentsLayout안에 들어있는 자식뷰의 유형(이미지뷰, 에디트텍스트뷰)에 따라 나눠서 파이어베이스에 저장
             var i = 0
@@ -230,7 +301,7 @@ class WritePostActivity : BasicActivity() {
                         if (text.length > 0) {
                             contentsList.add(text)
                         }
-                    } else {                         //자식뷰가 이미지뷰일때
+                    } else {   //자식뷰가 url이 아닐경우에만 스토리지, db에 저장해줄거임 (url일 경우엔 수정 )
                         contentsList.add(pathList[pathCount])  //contentsList에 사진경로를 넣어줌. pathList라는 리스트안엔 아까 게시글 써줄때 넣은 사진들의 경로가 순서대로 들어있음
 
                         var pathArray = pathList.get(pathCount).split(".")       // .을 기준으로 나눠서 사진경로문자열을 pathArray배열안에 저장
@@ -276,19 +347,10 @@ class WritePostActivity : BasicActivity() {
                                         tilte,
                                         contentsList,
                                         user.uid,
-                                        Date()
+                                        date
                                     )  //게시글 객체 하나 생성
-                                    storeupload(
-                                        documentReference,
-                                        WriteInfo
-                                    )  //밑에 만들어둔 함수임. 게시글 객체를 인자로 받아서 게시글을 db에 등록시켜줌. documentReference를 인자로 보내는 이유는
+                                    storeupload(documentReference, WriteInfo)  //밑에 만들어둔 함수임. 게시글 객체를 인자로 받아서 게시글을 db에 등록시켜줌. documentReference를 인자로 보내는 이유는
                                     // db에 있는 게시글들의 uid값이랑 스토리지에 있는 이미지들 uid값이랑 같게 해주는게 찾을때 편해서 그리 해주려고.
-
-                                    var a = 0
-                                    repeat(contentsList.size) {
-                                        Log.e("로그", "콘텐츠: " + contentsList.get(a))
-                                        a++
-                                    }
                                 }
                             }
                         }
@@ -299,7 +361,7 @@ class WritePostActivity : BasicActivity() {
                 i++
             }  //큰 repeat문
             if (pathList.size == 0) {            //사용자가 게시글에 이미지는 하나도 안넣었을때도 게시글 등록은 해줘야 하므로.
-                var WriteInfo = PostInfo(tilte, contentsList, user.uid, Date())  //게시글 객체 하나 생성
+                var WriteInfo = PostInfo(tilte, contentsList, user.uid, date)  //게시글 객체 하나 생성
                 storeupload(documentReference, WriteInfo)
             }
         } else {
