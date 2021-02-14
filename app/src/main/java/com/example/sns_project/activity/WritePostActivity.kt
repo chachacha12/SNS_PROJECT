@@ -214,7 +214,6 @@ class WritePostActivity : BasicActivity() {
                         i++
                     }
                 }
-
                 val imageView = ImageView(this)   //새로운 이미지뷰를 하나를 이 액티비티xml에 생성함
                 imageView.layoutParams = layoutParams  //위에서 만든 layoutParams를 이미지뷰에 붙힘
 
@@ -240,8 +239,10 @@ class WritePostActivity : BasicActivity() {
                     onFocusChangedListener   //포커스가 있는지 판별함. 포커스 있으면 이 뷰가 selectedEditText가 됨
                 linearLayout.addView(editText)
             }
-            1 -> if (resultCode == Activity.RESULT_OK) {
+            1 -> if (resultCode == Activity.RESULT_OK) {    //이미지를 수정하려고 새 이미지를 선택했을때
+                var selectedView = selectedImageView.parent as View   // .parent 또는 getParent()를 하면 그 뷰의 부모 뷰(linearLayout 등)가 선택되어진다.  //removeView()안에는 뷰가 와야하는데 레이아웃이 와버려서 에러뜸. 그러므로 as를 통해 뷰로 형변환 해줌
                 var profilePath = data!!.getStringExtra("profilePath")
+                pathList.set(contentsLayout.indexOfChild(selectedView) - 1, profilePath) // pathList안에 이미지를 넣어줌. / 첫 인자: 넣을 인덱스 위치/ 두번째 인자: 들어갈 element  / 즉 기존 이미지는 없어지고 새로운 이미지가 넣어지는듯?
                 Glide.with(this).load(profilePath).override(1000)
                     .into(selectedImageView)   //이미지를 수정해줌
             }
@@ -258,7 +259,7 @@ class WritePostActivity : BasicActivity() {
     var successCount = 0    //게시글에 첨부한 사진이 여러개일수 있으니, 언제 끝나는지 확인해주기 위한 변수
 
     //memberinit액티비티에서 가져온 함수 2개 -> profileUpdate와 uploader함수를 변형해준거임
-    private fun storageUpload()   //사용자가 확인버튼 눌르면 실행시킬 함수 -게시글 작성한걸 파이어베이스에 등록(업데이트)해줌
+    private fun storageUpload()   //사용자가 확인버튼 눌르면 실행시킬 함수 -게시글 작성한걸 파이어베이스에 등록(업데이트)해줌   (이미지 삭제, 수정 했을땐, 그 이미지를 db,스토리지에서 지우는 작업을 지우는 즉시 했음. 메인액티비티에서. 그래서 여기선 db, 스토리지에 등록만 해줌됨 )
     {
         var tilte = titleEditText.text.toString()
 
@@ -296,16 +297,18 @@ class WritePostActivity : BasicActivity() {
                 //linearLayout안에는 이미지뷰와 editText뷰 2개의 자식뷰가 있음
                 repeat(linearLayout.childCount) {
                     var view = linearLayout.getChildAt(index)
+
                     if (view is EditText) {               //코틀린에선 자료형이 일치하는지 판별을 is 연산자씀. 자바에선 instanceof 였음.
                         var text = view.text.toString()   //인덱스 0이 첫번째이므로 이미지뷰이고 1은 editText뷰임
                         if (text.length > 0) {
                             contentsList.add(text)
                         }
-                    } else {   //자식뷰가 url이 아닐경우에만 스토리지, db에 저장해줄거임 (url일 경우엔 수정 )
-                        contentsList.add(pathList[pathCount])  //contentsList에 사진경로를 넣어줌. pathList라는 리스트안엔 아까 게시글 써줄때 넣은 사진들의 경로가 순서대로 들어있음
+                    } else if(! Patterns.WEB_URL.matcher(pathList[pathCount]).matches() ) {   //자식뷰가 url이 아닐경우에만 스토리지, db에 저장해줄거임
+                        var path = pathList[pathCount]
+                        successCount++
+                        contentsList.add(path)  //contentsList에 사진경로를 넣어줌. pathList라는 리스트안엔 아까 게시글 써줄때 넣은 사진들의 경로가 순서대로 들어있음
 
-                        var pathArray = pathList.get(pathCount).split(".")       // .을 기준으로 나눠서 사진경로문자열을 pathArray배열안에 저장
-
+                        var pathArray = path.split(".")       // .을 기준으로 나눠서 사진경로문자열을 pathArray배열안에 저장
 
                         //*****************파이어베이스 스토리지에 사진경로로 사진 저장하기 위한 코드***************** memberinit에서 가져옴
                         val mountainImagesRef =
@@ -336,12 +339,12 @@ class WritePostActivity : BasicActivity() {
                             //스토리지에 사진경로 올렸고, 다시 스토리지주소를 통해 사진경로(uri)값을 가져오는 작업.
                             //가져와서 메타데이터 통해 만든 index값에 맞춰서 리스트에 이미지 uri를 저장하면, editText안의 내용과 uri가 순서대로 contentsList에 잘 들어갈거임!!
                             mountainImagesRef.downloadUrl.addOnSuccessListener {
+                                successCount--
                                 contentsList.set(
                                     index,
                                     it.toString()
                                 )         //여기서 it이 uri값임.  contentsList의 index에 맞는 인덱스안에 uri넣음
-                                successCount++
-                                if (pathList.size == successCount) {    //게시글에 내가 첨부했던 모든 사진들(pathList)이 스토리지에 업로드되었고, contentsList에 추가되었을때
+                                if (successCount==0) {    //게시글에 내가 첨부했던 모든 사진들(pathList)이 스토리지에 업로드되었고, 다시 스토리지에서 uri값 가져와서 contentsList에 모두 추가되었을때
                                     //완료 로직
                                     var WriteInfo = PostInfo(
                                         tilte,
@@ -360,7 +363,7 @@ class WritePostActivity : BasicActivity() {
                 }  //작은 repeat문
                 i++
             }  //큰 repeat문
-            if (pathList.size == 0) {            //사용자가 게시글에 이미지는 하나도 안넣었을때도 게시글 등록은 해줘야 하므로.
+            if (successCount == 0) {            //사용자가 게시글에 이미지는 하나도 안넣었을때도 게시글 등록은 해줘야 하므로.
                 var WriteInfo = PostInfo(tilte, contentsList, user.uid, date)  //게시글 객체 하나 생성
                 storeupload(documentReference, WriteInfo)
             }
