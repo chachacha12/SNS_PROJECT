@@ -7,6 +7,7 @@ package com.example.sns_project.activity
 // 파이어베이스-문서-가이드-개발(인증(앱에 파이어베이스연결, 신규사용자가입 등 기능), cloud firestore(db에 저장된 회원정보 읽거나 추가 기능), storage() 등을 이용)
 
 
+import android.app.DownloadManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -113,13 +114,13 @@ class MainActivity : BasicActivity() {
     }  //init
 
 
+
     //사용자가 실시간으로 게시글 삭제, 수정할때에 맞춰서 리스트 업데이트 해줄거임
     //인터페이스 객체를 어댑터말고 액티비티에 구현해둬야하는 이유는 onResume함수 등이 있어서 게시글 업데이트를 해줄수 있어서?
     //인터페이스를 구현한 익명객체를 생성해서 사용할거임. 그리고 이걸 어댑터에 인자로 넣어주면 어댑터에서도 사용가능.
     val onPostListener = object : OnPostListener {
         override fun onDelete(position: Int) {        //postList상에서의 게시글 위치값을 받아서 지워줄거임
-            var id =
-                postList.get(position).id!!  //postList의 특정위치의 게시글의 id값 가져옴. 밑에서 splite한거 찾을때 쓰임
+            var id = postList.get(position).id!!  //postList의 특정위치의 게시글의 id값 가져옴. 밑에서 splite한거 찾을때 쓰임
 
             //이미지,영상등을 스토리지에 저장된 이름을 알아내서 스토리지에서 삭제하는 로직  // 파이어베이스의 스토리지는 여러 사진들 모아두는 폴더가 따로 없어서 사진 하나하나 지워줘야한다고 함.
             //이제 postList안의 특정 게시물의 contents를 돌면서, 그게 이미지면 삭제할거임.
@@ -150,7 +151,6 @@ class MainActivity : BasicActivity() {
             storeUploader(id)  //이건 지우려는 게시글에 이미지가 하나도 없을때도 db는 지워야하기 때문에 둠.
         }
 
-
         //게시글 수정작업
         override fun onModify(position: Int) {
             myStartActivity(WritePostActivity::class.java, postList.get(position))  //선택한 게시물을 인텐트를 보내줌
@@ -178,7 +178,7 @@ class MainActivity : BasicActivity() {
             val collectionReference = firebaseFirestore.collection("posts")
             //db(클라우드firestore)에서 게시글 데이터들을 가져오는 코드(파이어베이스문서 - cloudeFirestore-데이터읽기-데이터한번 가져오기- 컬렉션에서 여러 문서가져오기)
             collectionReference
-                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .orderBy("createdAt", DownloadManager.Query.Direction.DESCENDING)
                 .get()     //게시글을 생성일기준으로 순서대로 보여주고자할때 orderBy함수이용(문서-가이드-클라우드fireStore-데이터읽기-데이터정렬 및 제한-내림차순으로 정리하기?)
                 .addOnSuccessListener { documents ->
                     postList.clear()  //재실행 될때마다 onResume()이 실행되어서 for문 땜시 데이터가 추가되므로 그걸 막기위해 리스트 비워줌
@@ -194,7 +194,9 @@ class MainActivity : BasicActivity() {
                             )  //게시글id정보(수정, 삭제하려고 할때 이용하기 위해)
                         )
                     }
-                    mainAdapter.notifyDataSetChanged()   //이렇게 해주면 어댑터의 데이터가 업데이트된 상태로 바뀜. 즉 새로고침해줌. recyclerView.adapter = mainAdapter를 새로 한 것과 비슷. 하지만 다른점은 이건 새로운 데이터(인자)가지고 어댑터 클래스에서 onBindViewHolder()만 거침. onCreateView등은 안 거침. 그래서 onBindView안에서 기능들 다 넣어줘야함.
+                    mainAdapter.notifyDataSetChanged()   //이렇게 해주면 어댑터의 데이터가 업데이트된 상태로 바뀜. 즉 새로고침해줌. recyclerView.adapter = mainAdapter를 새로 한 것과 비슷.
+                    // 하지만 다른점은 이건 새로운 데이터(인자)가지고 어댑터 클래스에서 onBindViewHolder()만 거침. onCreateView등은 안 거침.
+                    // 그래서 onBindView안에서 기능들 다 넣어줘야함.
                     //즉, 어댑터에 postList 있는데 그게 새로 바뀐(게시글 삭제or수정시) postList가 들어옴
                 }
                 .addOnFailureListener { exception ->

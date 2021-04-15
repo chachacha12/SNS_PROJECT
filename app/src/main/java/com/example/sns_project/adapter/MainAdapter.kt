@@ -136,7 +136,6 @@ class MainAdapter(var activity: Activity, private var myDataset: ArrayList<PostI
                 else -> false
             }
         }
-
         val inflater: MenuInflater = popup.menuInflater
         inflater.inflate(R.menu.post, popup.menu)
         popup.show()
