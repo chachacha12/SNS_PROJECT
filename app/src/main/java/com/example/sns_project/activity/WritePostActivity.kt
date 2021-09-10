@@ -32,6 +32,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 
+
 class WritePostActivity : BasicActivity() {
     private val TAG = "WritePostActivity"
     private lateinit var user: FirebaseUser         //현재 로그인된 회원객체를 전역으로 둘거임. 초기화는 안하고 선언만.
@@ -39,7 +40,7 @@ class WritePostActivity : BasicActivity() {
     private lateinit var buttonsBackgroundlayout: RelativeLayout     //게시글에 있는 이미지or 이 레이아웃 자체를 눌렀을때 이미지 수정 및 삭제하는 기능을 위한 레이아웃객체 전역으로둠
     private lateinit var selectedImageView: ImageView //사용자가 게시글에 올린 이미지 삭제or수정하려고 선택했을때 그 이미지를 이 전역변수에 저장해둘거임. 삭제하기 편하게.
     private var selectedEditText: EditText? = null  //우선 null로 지정해둠. 안해두면 포커스 지정안해줬을때 에러남. selectedEditText변수가 쓰이는데 초기화는 안되어있어서 에러나는듯. 그래서 null로 초기화해줌
-    private lateinit var postInfo: PostInfo  //특정 게시물 수정하기or삭제하기 버튼 눌렀을때 이 변수에 넣어줄거임. 여러 지역함수?안에서 쓸거라 전역으로빼둠
+    private var postInfo: PostInfo? = null    //특정 게시물 수정하기or삭제하기 버튼 눌렀을때 이 변수에 넣어줄거임. 여러 지역함수?안에서 쓸거라 전역으로빼둠
     lateinit var storageRef: StorageReference   //게시글 삭제할떄 스토리지에도 접근해서 이미지 지워줘야해서, 그때 필요함
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,13 +55,13 @@ class WritePostActivity : BasicActivity() {
         var storage = Firebase.storage   //파이어베이스 저장소(스토리지)의 객체를 가져옴
         storageRef = storage.reference   //게시글 삭제할때, 스토리지에서 지워주기위해 필요함
 
-        postInfo = intent.getSerializableExtra("postInfo") as PostInfo  //MainActivity에서 게시글 수정버튼을 눌러서 보낸 인텐트에 실린 값(수정하고자하는 게시물 객체)를 받음. 인텐트를 받을땐 getIntent() 또는 Intent 이용.
+        postInfo = (intent.getSerializableExtra("postInfo") as? PostInfo)  //MainActivity에서 게시글 수정버튼을 눌러서 보낸 인텐트에 실린 값(수정하고자하는 게시물 객체)를 받음. 인텐트를 받을땐 getIntent() 또는 Intent 이용.
         //getSerializable은 보내는 데이터가 내가 만든 클래스의 객체일때 사용함.
 
         if (postInfo != null) {   //null이라면 수정하기버튼 누른게 아니라 +버튼눌러서 새로운 게시글 만드려는거임. 즉, postinit()을 안거쳐도됨
-            titleEditText.setText(postInfo.title)
+            titleEditText.setText(postInfo!!.title)
             //이제 contents 내용들 삥삥 돌면서 기존 이미지랑 EditText들을 넣어주면됨
-            var contentsList = postInfo.contents
+            var contentsList = postInfo!!.contents
             for (i in contentsList.indices) {
                 var contents = contentsList.get(i)
                 if (Patterns.WEB_URL.matcher(contents).matches() && contents.contains("https://firebasestorage.googleapis.com/v0/b/sns-project-d0fb7.appspot.com/o/post")) {        //올바른 url형식인지 판별, 즉 이미지or영상인지 // Patterns.WEB_URL.matcher().matches() 이 구문은 matcher안의 문자열이 올바른 url형식인지 판단해서 true나 false반환함
@@ -84,6 +85,8 @@ class WritePostActivity : BasicActivity() {
                     //아래의 두줄을 통해 게시글 만드는 화면에서 이미지 추가할때, 그 이미지가 화면에 꽉차보이게 나옴.
                     imageView.adjustViewBounds = true
                     imageView.scaleType = ImageView.ScaleType.FIT_XY
+
+
 
                     imageView.setOnClickListener {
                         buttonsBackgroundlayout.visibility =
@@ -178,7 +181,7 @@ class WritePostActivity : BasicActivity() {
 
             //파이어베이스 문서-스토리지-안드로이드-파일삭제  (스토리지 안의 내용 삭제)
             val desertRef =
-                storageRef.child("posts/" + postInfo.id + "/" + name) //스토리지에서 지울 이미지의 경로를 줌
+                storageRef.child("posts/" + postInfo!!.id + "/" + name) //스토리지에서 지울 이미지의 경로를 줌
             desertRef.delete().addOnSuccessListener {
                 Toast.makeText(this, "파일을 삭제하였습니다.", Toast.LENGTH_SHORT).show()
             }.addOnFailureListener {
@@ -307,14 +310,14 @@ class WritePostActivity : BasicActivity() {
                         .document()   //db에 있는 posts컬렉션의 documents주소를 가져옴 (이 주소안에 데이터넣거나 등등에 쓰려고가져옴)
                 } else {  //수정버튼을 눌러서 이 액티비티로 왔을때
                     firebaseFirestore.collection("posts")
-                        .document(postInfo.id!!)  //이러면 id에 맞는 특정 위치의 문서에 수정한 게시글이 생기면서 원래 있던 게시글은 덮여써질거임.
+                        .document(postInfo!!.id!!)  //이러면 id에 맞는 특정 위치의 문서에 수정한 게시글이 생기면서 원래 있던 게시글은 덮여써질거임.
                 }
             //게시글 새로만드려고 이 액티비티 온건지 수정버튼 눌러서 온건지에 따라, 만드는 게시글의 생성일을 새로만들거나, 기존꺼 유지하거나함.
             var date =
                 if (postInfo == null) {
                     Date()
                 } else {
-                    postInfo.createdAt!!
+                    postInfo!!.createdAt!!
                 }
 
             //contentsLayout안에 들어있는 자식뷰의 유형(이미지뷰, 에디트텍스트뷰)에 따라 나눠서 파이어베이스에 저장

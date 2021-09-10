@@ -39,7 +39,7 @@ import java.io.FileInputStream
 
 class MemberInitActivity : BasicActivity() {
 
-    lateinit var profilePath: String  //이미지가 저장된 파일의 경로를 전역으로 둠
+     var profilePath: String? = null //이미지가 저장된 파일의 경로를 전역으로 둠
     private lateinit var user: FirebaseUser   //회원 객체를 전역으로 선언만 해둠
 
 

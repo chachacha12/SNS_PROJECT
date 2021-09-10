@@ -19,10 +19,9 @@ import kotlinx.android.synthetic.main.activity_sign_up.checkbutton
 import kotlinx.android.synthetic.main.activity_sign_up.passwordeditText
 import kotlinx.android.synthetic.main.view_loader.*
 
-
 class LoginActivity : BasicActivity() {
 
-    private lateinit var auth: FirebaseAuth                //
+    private lateinit var auth: FirebaseAuth //
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
